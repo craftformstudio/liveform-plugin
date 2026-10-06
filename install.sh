@@ -290,30 +290,69 @@ print(f"Configured Cursor hooks in {path}")
 PY
 }
 
+# True only for plugin name exactly "liveform" (any marketplace), e.g. liveform@liveform-local.
+is_liveform_plugin_spec() {
+  case "$1" in
+    liveform@*[!A-Za-z0-9._-]*) return 1 ;;
+    liveform@[A-Za-z0-9._-]*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# True only for marketplaces named exactly liveform or liveform-local.
+is_liveform_marketplace_name() {
+  case "$1" in
+    liveform|liveform-local) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 claude_plugin_specs() {
-  # Prints plugin specs like liveform@liveform-local
+  # Prints specs whose plugin name is exactly liveform (any marketplace).
   claude plugin list 2>/dev/null | awk '
     {
       for (i = 1; i <= NF; i++) {
-        if ($i ~ /^liveform@/) {
-          gsub(/[,;].*$/, "", $i)
-          print $i
-        }
+        tok = $i
+        gsub(/[,;].*$/, "", tok)
+        gsub(/^[^A-Za-z0-9@._-]+/, "", tok)
+        gsub(/[^A-Za-z0-9@._-]+$/, "", tok)
+        if (tok ~ /^liveform@[A-Za-z0-9._-]+$/) print tok
       }
     }
   ' | sort -u
 }
 
 claude_marketplace_names() {
+  # Prints only exact marketplace names liveform or liveform-local when present.
   claude plugin marketplace list 2>/dev/null | awk '
-    BEGIN { IGNORECASE=1 }
-    /liveform/ {
+    {
       for (i = 1; i <= NF; i++) {
-        gsub(/[,:;].*$/, "", $i)
-        if ($i ~ /liveform/) print $i
+        tok = $i
+        gsub(/[,:;].*$/, "", tok)
+        gsub(/^[^A-Za-z0-9._-]+/, "", tok)
+        gsub(/[^A-Za-z0-9._-]+$/, "", tok)
+        if (tok == "liveform" || tok == "liveform-local") print tok
       }
     }
   ' | sort -u
+}
+
+remove_liveform_plugin_spec() {
+  spec="$1"
+  if ! is_liveform_plugin_spec "$spec"; then
+    return 0
+  fi
+  claude plugin uninstall "$spec" >/dev/null 2>&1 || true
+  log "Removed Claude plugin $spec"
+}
+
+remove_liveform_marketplace() {
+  market="$1"
+  if ! is_liveform_marketplace_name "$market"; then
+    return 0
+  fi
+  claude plugin marketplace remove "$market" >/dev/null 2>&1 || true
+  log "Removed Claude marketplace $market"
 }
 
 install_claude() {
@@ -322,26 +361,24 @@ install_claude() {
     return 0
   fi
 
-  # Remove any Liveform plugin from another marketplace.
+  # Remove any liveform plugin from another marketplace (exact name only).
   specs="$(claude_plugin_specs || true)"
   for spec in $specs; do
     case "$spec" in
       "$PLUGIN_SPEC") ;;
-      liveform@*)
-        claude plugin uninstall "$spec" >/dev/null 2>&1 || true
-        log "Removed Claude plugin $spec"
+      *)
+        remove_liveform_plugin_spec "$spec"
         ;;
     esac
   done
 
-  # Remove other Liveform marketplaces (keep ours).
+  # Remove liveform-local only; keep marketplace named exactly liveform.
   markets="$(claude_marketplace_names || true)"
   for market in $markets; do
     case "$market" in
       "$MARKETPLACE_NAME") ;;
-      *liveform*)
-        claude plugin marketplace remove "$market" >/dev/null 2>&1 || true
-        log "Removed Claude marketplace $market"
+      liveform-local)
+        remove_liveform_marketplace "$market"
         ;;
     esac
   done
@@ -362,14 +399,13 @@ install_claude() {
     log "Installed Claude plugin $PLUGIN_SPEC"
   fi
 
-  # Final guarantee: only one Liveform plugin remains.
+  # Final guarantee: only liveform@liveform remains among liveform plugins.
   specs="$(claude_plugin_specs || true)"
   for spec in $specs; do
     case "$spec" in
       "$PLUGIN_SPEC") ;;
-      liveform@*)
-        claude plugin uninstall "$spec" >/dev/null 2>&1 || true
-        log "Removed extra Claude plugin $spec"
+      *)
+        remove_liveform_plugin_spec "$spec"
         ;;
     esac
   done
@@ -452,27 +488,20 @@ uninstall_claude() {
   fi
   specs="$(claude_plugin_specs || true)"
   for spec in $specs; do
-    case "$spec" in
-      liveform@*)
-        claude plugin uninstall "$spec" >/dev/null 2>&1 || true
-        log "Uninstalled Claude plugin $spec"
-        ;;
-    esac
+    if is_liveform_plugin_spec "$spec"; then
+      claude plugin uninstall "$spec" >/dev/null 2>&1 || true
+      log "Uninstalled Claude plugin $spec"
+    fi
   done
+  # Only exact Liveform marketplace names; never substring-match.
   markets="$(claude_marketplace_names || true)"
-  # Also try the known names.
   markets="$markets
 $MARKETPLACE_NAME
 liveform-local"
   markets="$(printf '%s\n' "$markets" | sort -u)"
   for market in $markets; do
     [ -n "$market" ] || continue
-    case "$market" in
-      *liveform*)
-        claude plugin marketplace remove "$market" >/dev/null 2>&1 || true
-        log "Removed Claude marketplace $market"
-        ;;
-    esac
+    remove_liveform_marketplace "$market"
   done
 }
 
