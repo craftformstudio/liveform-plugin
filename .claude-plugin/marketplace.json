@@ -1,0 +1,13 @@
+{
+  "name": "liveform",
+  "owner": {
+    "name": "Liveform"
+  },
+  "plugins": [
+    {
+      "name": "liveform",
+      "source": "./plugins/liveform",
+      "description": "Liveform hooks for Claude Code"
+    }
+  ]
+}
