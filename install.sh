@@ -36,6 +36,90 @@ LIVEFORM_BIN="$BIN_DIR/liveform"
 CURSOR_HOOKS="$(expand_home "${CURSOR_HOOKS:-$HOME/.cursor/hooks.json}")"
 CURSOR_DIR="$(dirname "$CURSOR_HOOKS")"
 
+# Clearly marked block in shell profiles; install once, uninstall removes only this.
+LIVEFORM_PATH_BEGIN="# >>> Liveform >>>"
+LIVEFORM_PATH_END="# <<< Liveform <<<"
+
+path_block_bash_zsh() {
+  printf '%s\n' \
+    "$LIVEFORM_PATH_BEGIN" \
+    "export PATH=\"${BIN_DIR}:\$PATH\"" \
+    "$LIVEFORM_PATH_END"
+}
+
+path_block_fish() {
+  printf '%s\n' \
+    "$LIVEFORM_PATH_BEGIN" \
+    "set -gx PATH ${BIN_DIR} \$PATH" \
+    "$LIVEFORM_PATH_END"
+}
+
+# Append the Liveform PATH block once. Never touches project folders.
+ensure_path_in_profile() {
+  profile="$1"
+  kind="$2"
+  dir="$(dirname "$profile")"
+  mkdir -p "$dir"
+  if [ -f "$profile" ] && grep -qF "$LIVEFORM_PATH_BEGIN" "$profile" 2>/dev/null; then
+    return 0
+  fi
+  if [ -f "$profile" ] && [ -s "$profile" ]; then
+    printf '\n' >>"$profile"
+  fi
+  case "$kind" in
+    fish) path_block_fish >>"$profile" ;;
+    *) path_block_bash_zsh >>"$profile" ;;
+  esac
+}
+
+# Remove only the marked Liveform block; leave every other line unchanged.
+remove_path_from_profile() {
+  profile="$1"
+  if [ ! -f "$profile" ]; then
+    return 0
+  fi
+  if ! grep -qF "$LIVEFORM_PATH_BEGIN" "$profile" 2>/dev/null; then
+    return 0
+  fi
+  tmp="$(mktemp)"
+  awk -v begin="$LIVEFORM_PATH_BEGIN" -v end="$LIVEFORM_PATH_END" '
+    $0 == begin { skip=1; next }
+    $0 == end { skip=0; next }
+    skip { next }
+    { print }
+  ' "$profile" >"$tmp"
+  mv "$tmp" "$profile"
+}
+
+profile_has_liveform_path() {
+  [ -f "$1" ] && grep -qF "$LIVEFORM_PATH_BEGIN" "$1" 2>/dev/null
+}
+
+install_shell_path() {
+  already=0
+  if profile_has_liveform_path "$HOME/.zshrc" \
+    && profile_has_liveform_path "$HOME/.bashrc" \
+    && profile_has_liveform_path "$HOME/.config/fish/config.fish"; then
+    already=1
+  fi
+  ensure_path_in_profile "$HOME/.zshrc" zsh
+  ensure_path_in_profile "$HOME/.bashrc" bash
+  ensure_path_in_profile "$HOME/.config/fish/config.fish" fish
+  if [ "$already" -eq 1 ]; then
+    log "PATH already includes $BIN_DIR."
+  else
+    log "Added $BIN_DIR to your PATH (zsh, bash, fish)."
+    log "Open a new terminal so the liveform command works."
+  fi
+}
+
+uninstall_shell_path() {
+  remove_path_from_profile "$HOME/.zshrc"
+  remove_path_from_profile "$HOME/.bashrc"
+  remove_path_from_profile "$HOME/.config/fish/config.fish"
+  log "Removed Liveform PATH block from shell profiles."
+}
+
 detect_platform() {
   os="$(uname -s | tr '[:upper:]' '[:lower:]')"
   arch="$(uname -m)"
@@ -530,12 +614,14 @@ uninstall_home() {
 do_uninstall() {
   uninstall_cursor_hooks
   uninstall_claude
+  uninstall_shell_path
   uninstall_home
   log "Uninstall finished"
 }
 
 do_install() {
   download_release
+  install_shell_path
 
   if command -v claude >/dev/null 2>&1; then
     install_claude
