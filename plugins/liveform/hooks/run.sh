@@ -2,7 +2,7 @@
 # Call ~/.liveform/bin/liveform. If missing, download the matching release quietly.
 set +e
 LIVEFORM_BIN="${HOME}/.liveform/bin/liveform"
-REPO_OWNER="stewymccarthy"
+REPO_OWNER="craftformstudio"
 REPO_NAME="liveform-plugin"
 
 ensure_liveform() {

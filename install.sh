@@ -1,10 +1,10 @@
 #!/bin/sh
 # Install Liveform for Claude Code and Cursor.
-# Usage: curl -fsSL https://raw.githubusercontent.com/stewymccarthy/liveform-plugin/main/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/craftformstudio/liveform-plugin/main/install.sh | sh
 #        sh install.sh --uninstall
 set -eu
 
-REPO_OWNER="stewymccarthy"
+REPO_OWNER="craftformstudio"
 REPO_NAME="liveform-plugin"
 MARKETPLACE_SRC="${REPO_OWNER}/${REPO_NAME}"
 MARKETPLACE_NAME="liveform"
