@@ -2,7 +2,7 @@
 
 Liveform teaches your coding agent your standards. Correct it once, it stays corrected.
 
-Private beta: you need an invite to sign in. Request access at [liveform.ai](https://www.liveform.ai).
+Private beta: you need an invite to sign in. Request access at [liveform.ai](https://liveform.ai).
 
 ## Install
 
@@ -27,4 +27,4 @@ curl -fsSL https://raw.githubusercontent.com/craftformstudio/liveform-plugin/mai
 
 ## Site
 
-https://www.liveform.ai
+https://liveform.ai
