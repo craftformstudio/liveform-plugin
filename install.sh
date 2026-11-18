@@ -472,11 +472,13 @@ install_claude() {
       claude plugin marketplace add "$MARKETPLACE_SRC" || die "Could not add Claude marketplace $MARKETPLACE_SRC"
     log "Added Claude marketplace $MARKETPLACE_SRC"
   else
-    log "Claude marketplace $MARKETPLACE_NAME already present"
+    claude plugin marketplace update "$MARKETPLACE_NAME" >/dev/null 2>&1 || true
+    log "Claude marketplace $MARKETPLACE_NAME already present (refreshed)"
   fi
 
   if claude_plugin_specs | grep -Fxq "$PLUGIN_SPEC"; then
-    log "Claude plugin $PLUGIN_SPEC already installed"
+    claude plugin update "$PLUGIN_SPEC" >/dev/null 2>&1 || true
+    log "Claude plugin $PLUGIN_SPEC already installed (updated)"
   else
     claude plugin install "$PLUGIN_SPEC" >/dev/null 2>&1 || \
       claude plugin install "$PLUGIN_SPEC" || die "Could not install $PLUGIN_SPEC"
@@ -506,6 +508,28 @@ finish_signin() {
   fi
   log "Not signed in; starting sign-in"
   "$LIVEFORM_BIN" signin || true
+}
+
+CURSOR_COMMAND="$CURSOR_DIR/commands/liveform.md"
+
+# /liveform in Cursor: a prompt that runs `liveform status` and relays it.
+install_cursor_command() {
+  mkdir -p "$CURSOR_DIR/commands"
+  cat >"$CURSOR_COMMAND" <<'CMD'
+Run this in the terminal, adding on, off or signin after "status" if I typed one of those after /liveform:
+
+~/.liveform/bin/liveform status
+
+Then pass its output to me as written, in plain sentences, keeping the link. Do not run anything else, change any files or add advice of your own.
+CMD
+  log "Added /liveform to Cursor"
+}
+
+uninstall_cursor_command() {
+  if [ -f "$CURSOR_COMMAND" ]; then
+    rm -f "$CURSOR_COMMAND"
+    log "Removed /liveform from Cursor"
+  fi
 }
 
 uninstall_cursor_hooks() {
@@ -613,6 +637,7 @@ uninstall_home() {
 
 do_uninstall() {
   uninstall_cursor_hooks
+  uninstall_cursor_command
   uninstall_claude
   uninstall_shell_path
   uninstall_home
@@ -631,6 +656,7 @@ do_install() {
 
   if [ -d "$(expand_home "$HOME/.cursor")" ]; then
     install_cursor_hooks
+    install_cursor_command
   else
     log "Cursor not found; skipped hooks install"
   fi

@@ -19,6 +19,10 @@ claude plugin marketplace add craftformstudio/liveform-plugin
 claude plugin install liveform@liveform
 ```
 
+## Check it's on
+
+Liveform is on in every project you open in Claude Code or Cursor. Type `/liveform` in either to see where it stands. `/liveform off` turns it off for one project, `/liveform on` turns it back on, and `/liveform signin` signs you in again.
+
 ## Uninstall
 
 ```bash
